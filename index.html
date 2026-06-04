@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.M.C  Smart AI Journal</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 15px;
+            padding-bottom: 120px;
+        }
+        .dashboard {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            border: 1px solid #30363d;
+        }
+        .metric-title { color: #9ca3af; font-size: 11px; letter-spacing: 1px; font-weight: bold; }
+        .metric-value { font-size: 24px; font-weight: bold; margin-top: 5px; }
+        .winrate { color: #10b981; }
+        .trades { color: #06b6d4; }
+        .profit { color: #eab308; }
+        
+        .reset-container {
+            text-align: right;
+            margin-bottom: 15px;
+            padding: 0 5px;
+        }
+        .master-clear-btn {
+            background-color: #ef444415;
+            color: #f87171;
+            border: 1px solid #ef444433;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 0 5px;
+        }
+        .filter-btn {
+            flex: 1;
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            padding: 8px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .filter-btn.active {
+            background-color: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .section-header {
+            font-size: 18px;
+            margin: 10px 5px;
+            color: #f3f4f6;
+        }
+
+        .trade-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        
+        .trade-screenshot {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-top: 12px;
+            border: 1px solid #30363d;
+        }
+
+        .ai-feedback {
+            background-color: #1c212c;
+            border-left: 4px solid #2563eb;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .card-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #8b949e;
+            margin-top: 8px;
+            border-top: 1px dashed #30363d;
+            padding-top: 8px;
+            align-items: center;
+        }
+
+        .delete-btn {
+            background-color: #ef444422;
+            color: #f87171;
+            border: 1px solid #ef444444;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 25px;
+            left: 25px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 16px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+            border: none;
+            font-size: 16px;
+            text-align: center;
+            cursor: pointer;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div>
+            <div class="metric-title">WINRATE</div>
+            <div class="metric-value winrate" id="winrate-display">0%</div>
+        </div>
+        <div>
+            <div class="metric-title">TRADES</div>
+            <div class="metric-value trades" id="total-display">0</div>
+        </div>
+        <div>
+            <div class="metric-title">NET P/L</div>
+            <div class="metric-value profit" id="profit-display">$0</div>
+        </div>
+    </div>
+
+    <div class="reset-container">
+        <button class="master-clear-btn" onclick="wipeEverythingClear()">⚠️ Clear All Legacy Data</button>
+    </div>
+
+    <div class="filter-container">
+        <button class="filter-btn active" id="filter-all" onclick="setFilter('ALL')">All</button>
+        <button class="filter-btn" id="filter-wins" onclick="setFilter('WIN')">Wins</button>
+        <button class="filter-btn" id="filter-losses" onclick="setFilter('LOSS')">Losses</button>
+    </div>
+
+    <div class="section-header">Visual Journal History Logs</div>
+    <div id="history-container">
+        <p style="color: #8b949e; text-align: center; margin-top: 40px;" id="empty-message">No trades logged yet. Click the button below to add your first setup!</p>
+    </div>
+
+    <input type="file" id="camera-trigger" accept="image/*" style="display: none;" onchange="processScreenshotLocal(event)">
+    
+    <button class="fab" onclick="document.getElementById('camera-trigger').click()">
+        📸 Scan Trade Screenshot
+    </button>
+
+    <script>
+        let tradeLogs = [];
+
+        function loadDatabase() {
+            try {
+                // Clear old variant footprints out of memory loops completely
+                localStorage.removeItem('smart_trades');
+                localStorage.removeItem('smart_trades_v2');
+                
+                let v3_Data = JSON.parse(localStorage.getItem('smart_trades_v3')) || [];
+                tradeLogs = v3_Data;
+                tradeLogs.forEach(t => { if(!t.id) t.id = Date.now() + Math.random(); });
+            } catch(e) {
+                // Fallback loop if sandbox environment blocks localStorage entirely
+                tradeLogs = [];
+            }
+        }
+
+        loadDatabase();
+        let currentFilter = "ALL";
+        updateDashboardVisuals();
+
+        function wipeEverythingClear() {
+            if (confirm("This will completely reset your dashboard metrics and wipe out all legacy test files. Proceed?")) {
+                try {
+                    localStorage.clear();
+                } catch(e) {}
+                tradeLogs = [];
+                updateDashboardVisuals();
+                alert("Database wiped! Your P/L is clean and ready.");
+            }
+        }
+
+        function runAIPsychologyReview(text, outcome) {
+            let note = text.toLowerCase();
+            if (note.includes("fomo") || note.includes("rush") || note.includes("chase")) {
+                return "⚠️ AI Warning: Entering due to FOMO ruins long-term edge. Do not chase moving candles.";
+            }
+            if (note.includes("greed") || note.includes("revenge") || note.includes("overtrade")) {
+                return "🔴 AI Coach: Revenge trading kills accounts. Step away from the screens for 2 hours.";
+            }
+            if (note.includes("scared") || note.includes("fear") || note.includes("panic")) {
+                return "🔵 AI Insight: If you feel fear, your lot size is too big. Reduce your risk parameters.";
+            }
+            if (note.includes("rule") || note.includes("plan") || note.includes("discipline")) {
+                return outcome === "WIN" ? "🎯 AI Praise: Perfect execution! Sticking to rules builds consistency." : "🛡️ AI Review: Sticking to your plan during a loss is a 'good loss'. Trust your edge.";
+            }
+            return "💡 AI Note: Setup logged successfully.";
+        }
+
+        function processScreenshotLocal(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64ImageString = e.target.result;
+
+                let pairValue = prompt("🤖 AI Matcher: Enter Asset Pair (e.g., EURUSD, XAUUSD):");
+                if (pairValue === null) return;
+                if (pairValue.trim() === "") pairValue = "EURUSD";
+
+                let typeValue = confirm("Is this an active BUY position?\n(Click OK for BUY, Click Cancel for SELL)") ? "BUY" : "SELL";
+                
+                let riskInput = prompt("💰 Risk Assessment:\nHow much money ($) did you risk?", "10");
+                if (riskInput === null) return;
+                let riskAmount = parseFloat(riskInput) || 0;
+
+                let isWin = confirm("Was this trade a WIN? (Click Cancel for LOSS)");
+                let finalOutcome = isWin ? "WIN" : "LOSS";
+
+                let rewardAmount = 0;
+                if (isWin) {
+                    let rewardInput = prompt("💵 Reward Assessment:\nHow much profit ($) did you take?", (riskAmount * 2).toString());
+                    rewardAmount = parseFloat(rewardInput) || 0;
+                } else {
+                    rewardAmount = -riskAmount;
+                }
+
+                let userThoughts = prompt(`✏️ Psychology Check:\nWhat was your mindset during this trade?`);
+                if (userThoughts === null) return;
+                if (userThoughts.trim() === "") userThoughts = "Followed manual operational strategy parameters.";
+
+                let aiReviewResult = runAIPsychologyReview(userThoughts, finalOutcome);
+
+                tradeLogs.push({
+                    id: Date.now() + Math.random(),
+                    pair: pairValue.toUpperCase(),
+                    type: typeValue,
+                    risk: riskAmount,
+                    reward: rewardAmount,
+                    thoughts: userThoughts,
+                    aiReview: aiReviewResult,
+                    outcome: finalOutcome,
+                    image: base64ImageString,
+                    date: new Date().toLocaleDateString()
+                });
+
+                if(tradeLogs.length > 30) { tradeLogs.shift(); } 
+                try {
+                    localStorage.setItem('smart_trades_v3', JSON.stringify(tradeLogs));
+                } catch(err) {}
+                updateDashboardVisuals();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deleteTradeLog(uid) {
+            if (confirm("Are you sure you want to delete this specific trade entry?")) {
+                tradeLogs = tradeLogs.filter(trade => trade.id !== uid);
+                try {
+                    localStorage.setItem('smart_trades_v3', JSON.stringify(tradeLogs));
+                } catch(e) {}
+                updateDashboardVisuals();
+            }
+        }
+
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            if(filterType === 'ALL') document.getElementById('filter-all').classList.add('active');
+            if(filterType === 'WIN') document.getElementById('filter-wins').classList.add('active');
+            if(filterType === 'LOSS') document.getElementById('filter-losses').classList.add('active');
+            updateDashboardVisuals();
+        }
+
+        function updateDashboardVisuals() {
+            const totalDisplay = document.getElementById('total-display');
+            const winrateDisplay = document.getElementById('winrate-display');
+            const profitDisplay = document.getElementById('profit-display');
+            const container = document.getElementById('history-container');
+            const emptyMessage = document.getElementById('empty-message');
+
+            totalDisplay.innerText = tradeLogs.length;
+
+            if (tradeLogs.length === 0) {
+                emptyMessage.style.display = 'block';
+                winrateDisplay.innerText = "0%";
+                profitDisplay.innerText = "$0";
+                profitDisplay.style.color = "#eab308";
+                container.innerHTML = "";
+                return;
+            }
+
+            let wins = tradeLogs.filter(t => t.outcome === "WIN").length;
+            let computedWinRate = ((wins / tradeLogs.length) * 100).toFixed(1);
+            winrateDisplay.innerText = computedWinRate + "%";
+
+            let netProfit = tradeLogs.reduce((sum, t) => sum + t.reward, 0);
+            profitDisplay.innerText = (netProfit >= 0 ? "+$" : "-$") + Math.abs(netProfit).toFixed(2);
+            profitDisplay.style.color = netProfit >= 0 ? "#10b981" : "#ef4444";
+
+            let filteredTrades = tradeLogs;
+            if (currentFilter !== "ALL") {
+                filteredTrades = tradeLogs.filter(t => t.outcome === currentFilter);
+            }
+
+            if (filteredTrades.length === 0) {
+                emptyMessage.style.display = 'block';
+                container.innerHTML = "";
+                return;
+            }
+            emptyMessage.style.display = 'none';
+
+            container.innerHTML = "";
+            [...filteredTrades].reverse().forEach(trade => {
+                let outcomeColor = trade.outcome === "WIN" ? "#10b981" : "#ef4444";
+                let cashDisplay = trade.outcome === "WIN" ? `+$${trade.reward}` : `-$${Math.abs(trade.reward)}`;
+                let imageHTML = trade.image ? `<img src="${trade.image}" class="trade-screenshot">` : '';
+                
+                container.innerHTML += `
+                    <div class="trade-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong style="color: #60a5fa; font-size: 16px;">${trade.pair} — <span style="font-size:14px; color:#f3f4f6;">${trade.type}</span></strong>
+                            <span style="background-color:${outcomeColor}; color:black; padding: 2px 10px; border-radius:12px; font-size:11px; font-weight:bold;">${trade.outcome} (${cashDisplay})</span>
+                        </div>
+                        ${imageHTML}
+                        <p style="margin: 12px 0 0 0; color: #d1d5db; font-size: 14px; line-height: 1.4;">" ${trade.thoughts} "</p>
+                        <div class="ai-feedback">🤖 <strong>AI Analysis:</strong> ${trade.aiReview}</div>
+                        <div class="card-meta">
+                            <span>Risked: $${trade.risk} — ${trade.date}</span>
+                            <button class="delete-btn" onclick="deleteTradeLog(${trade.id})">🗑️ Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
